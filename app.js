@@ -1,7 +1,7 @@
 // The Day — app orchestration. Vanilla ES module, no framework.
-import { APP, MEALS, WEEK, ROW } from './config.js';
+import { APP, WEEK, ROW } from './config.js';
 import {
-  isoDate, parseISO, dowOf, resolvePhase, targetsFor, isCheckinDay,
+  isoDate, parseISO, dowOf, resolvePhase, resolveEra, targetsFor, isCheckinDay,
   buildDay, mealsFor, mealSum, fmtTime, dayDiff,
 } from './engine.js';
 import { Store } from './store.js';
@@ -60,6 +60,8 @@ function renderTopbar() {
   const badges = $('#badges');
   badges.innerHTML = '';
   badges.appendChild(el(`<span class="badge phase">${escapeHtml(phase.badge)}</span>`));
+  const era = resolveEra(iso);
+  if (era.chip) badges.appendChild(el(`<span class="badge era">${escapeHtml(era.chip)}</span>`));
   if (checkin) badges.appendChild(el(`<span class="badge checkin">Photos + measurements</span>`));
 
   // Week strip: 7 days around today, today ringed, selected highlighted.
@@ -291,7 +293,7 @@ function sundayReview() {
 function dayStats(iso) {
   const day = WEEK[dowOf(iso)];
   const target = targetsFor(iso, day.type);
-  const meals = MEALS[day.type];
+  const meals = mealsFor(iso);
   const checks = Store.checksFor(iso);
   let p = 0, k = 0;
   for (const meal of meals) if (checks[meal.id]) { p += meal.p; k += meal.kcal; }

@@ -2,7 +2,7 @@
 import {
   hm, fmtTime, isWeekend, mealTime,
   PHASES, CHECKIN_ANCHOR, CHECKIN_INTERVAL_DAYS,
-  MEALS, ROW, SESSIONS, PREP_STEPS, WEEK, ANCHORS,
+  MEAL_ERAS, ROW, SESSIONS, PREP_STEPS, WEEK, ANCHORS,
 } from './config.js';
 
 // ── Date helpers (calendar-date safe — no timezone drift) ────────────────────
@@ -40,9 +40,23 @@ export function resolvePhase(iso) {
   return PHASES[PHASES.length - 1];
 }
 
+// ── Meal-era resolver ────────────────────────────────────────────────────────
+// Returns the meal era whose [start, end) window contains the date.
+export function resolveEra(iso) {
+  for (const e of MEAL_ERAS) {
+    if (iso >= e.start && iso < e.end) return e;
+  }
+  if (iso < MEAL_ERAS[0].start) return MEAL_ERAS[0];
+  return MEAL_ERAS[MEAL_ERAS.length - 1];
+}
+
 // Targets for a given date + day type ('training' | 'rest').
+// Phase 1 (Recomp) draws targets from the active meal era; later phases carry
+// their own kcal anchors (with intentionally-TBD splits).
 export function targetsFor(iso, type) {
-  return resolvePhase(iso).targets[type];
+  const phase = resolvePhase(iso);
+  if (phase.useEraTargets) return resolveEra(iso).targets[type];
+  return phase.targets[type];
 }
 
 // ── Check-in predicate: every 14 days anchored to CHECKIN_ANCHOR ─────────────
@@ -54,7 +68,7 @@ export function isCheckinDay(iso) {
 // ── Meal helpers ─────────────────────────────────────────────────────────────
 export function mealsFor(iso) {
   const day = WEEK[dowOf(iso)];
-  return MEALS[day.type];
+  return resolveEra(iso).meals[day.type];
 }
 export function mealSum(list) {
   return list.reduce((a, m) => ({ p: a.p + m.p, kcal: a.kcal + m.kcal }), { p: 0, kcal: 0 });
@@ -92,8 +106,8 @@ export function buildDay(iso, shiftMins = 0) {
   // Dog walk
   blocks.push({ kind: 'walk', tone: 'walk', id: 'dogwalk', start: ANCHORS.dogWalk.start, end: ANCHORS.dogWalk.end, title: '1000 Acre dog walk', sub: '1.5–2 hr · home ~11a–12p' });
 
-  // Meals (checkable)
-  for (const meal of MEALS[day.type]) {
+  // Meals (checkable) — from the active meal era
+  for (const meal of resolveEra(iso).meals[day.type]) {
     let t = mealTime(meal, dow);
     if (isShiftable(t)) t += shiftMins;
     blocks.push({
@@ -131,7 +145,7 @@ export function buildDay(iso, shiftMins = 0) {
   if (day.prep != null) {
     blocks.push({
       kind: 'prep', tone: 'prep', id: 'prep',
-      start: day.prep, title: 'Sunday prep', sub: '~45 min',
+      start: day.prep, title: 'Sunday prep', sub: '~1 hr',
       steps: PREP_STEPS,
     });
   }

@@ -52,6 +52,7 @@ button:focus-visible, [tabindex]:focus-visible { outline:2px solid var(--clay); 
   background:var(--chip); color:var(--ink); border:1px solid var(--line);
 }
 .badge.phase { background:var(--clay); color:#fff; border-color:transparent; }
+.badge.era { background:var(--sage); color:#16200F; border-color:transparent; }
 .badge.checkin { background:var(--forest); color:#EDEAD9; border-color:transparent; }
 
 /* ── Week strip ──────────────────────────────────────────────────────── */
