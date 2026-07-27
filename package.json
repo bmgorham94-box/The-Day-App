@@ -1,0 +1,10 @@
+{
+  "name": "the-day",
+  "version": "1.0.0",
+  "description": "The Day — a personal daily-planner PWA.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  }
+}
