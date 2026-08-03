@@ -72,8 +72,11 @@ new system is a config edit (a new era entry + a date), never a code change. Pha
 > splits are intentionally `null` (TBD); the app shows a banner until you fill them in.
 > Don't invent numbers.
 
-After editing, just reload the app (or bump the `CACHE` version in `sw.js` to force the
-service worker to pick up changes on next load).
+After editing, just deploy — **updates reach installed copies automatically.** The
+service worker is stale-while-revalidate (network-first for the HTML), and the app
+reloads itself once when a new version takes over, so the next time you open The Day it
+picks up your changes. No cache-version bump, no manual "clear site data." It still works
+fully offline from the last cached version.
 
 ---
 
