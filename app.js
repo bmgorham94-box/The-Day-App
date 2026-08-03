@@ -591,9 +591,34 @@ function boot() {
   render();
   setInterval(tick, 30 * 1000);
 
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
-  }
+  registerServiceWorker();
+}
+
+// ── Service worker: register + auto-update installed copies ──────────────────
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', async () => {
+    try {
+      // Whether a worker already controlled this page at load time. On the very
+      // first visit there's none, and the initial claim() must NOT trigger a reload.
+      const hadController = !!navigator.serviceWorker.controller;
+      const reg = await navigator.serviceWorker.register('sw.js');
+
+      // When a *new* worker takes over an already-controlled page, reload once
+      // so the fresh assets apply.
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController || reloaded) return;
+        reloaded = true;
+        window.location.reload();
+      });
+
+      // Check for a new deploy on load and whenever the app is refocused.
+      const check = () => reg.update().catch(() => {});
+      check();
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    } catch { /* SW unsupported or blocked — app still works, just not offline */ }
+  });
 }
 
 boot();
