@@ -99,9 +99,16 @@ export function buildDay(iso, shiftMins = 0) {
     });
   }
 
-  // Work start + meeting
+  // Work start + meeting (meeting is Mon–Fri only)
   blocks.push({ kind: 'anchor', tone: 'work', id: 'work-am', start: ANCHORS.workStart, title: 'Work · morning block', sub: '' });
-  blocks.push({ kind: 'meeting', tone: 'meeting', id: 'meeting', start: ANCHORS.meeting.start, end: ANCHORS.meeting.end, title: 'Daily meeting', sub: '7:00–8:00a' });
+  if (!ANCHORS.meeting.weekdaysOnly || !isWeekend(dow)) {
+    blocks.push({
+      kind: 'meeting', tone: 'meeting', id: 'meeting',
+      start: ANCHORS.meeting.start, end: ANCHORS.meeting.end,
+      title: 'Daily meeting',
+      sub: `${fmtTime(ANCHORS.meeting.start)}–${fmtTime(ANCHORS.meeting.end)}`,
+    });
+  }
 
   // Dog walk
   blocks.push({ kind: 'walk', tone: 'walk', id: 'dogwalk', start: ANCHORS.dogWalk.start, end: ANCHORS.dogWalk.end, title: '1000 Acre dog walk', sub: '1.5–2 hr · home ~11a–12p' });

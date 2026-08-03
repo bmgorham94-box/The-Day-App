@@ -11,10 +11,10 @@ test('ics export is well-formed with alarms', () => {
   assert.ok(ics.includes('\r\n'), 'uses CRLF line endings');
 });
 
-test('ics contains a full week of events (meals + meeting every day)', () => {
+test('ics contains a full week of events (meals every day + weekday meetings)', () => {
   const ics = buildICS('2026-07-27');
   const events = (ics.match(/BEGIN:VEVENT/g) || []).length;
-  // 7 meals + 1 meeting per day (+ rows/lifts) => at least 8*7 events.
+  // 7 meals/day × 7 + 5 weekday meetings + rows + lifts => well over 50.
   assert.ok(events >= 56, `expected >= 56 events, got ${events}`);
 });
 

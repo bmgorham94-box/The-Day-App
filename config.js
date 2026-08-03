@@ -233,10 +233,10 @@ export const WEEK = {
 
 // ── Fixed daily anchors ──────────────────────────────────────────────────────
 export const ANCHORS = {
-  wakeWeekday: hm(5, 15),
+  wakeWeekday: hm(4, 30),
   wakeWeekend: hm(6, 30),
   workStart: hm(6, 0),
-  meeting: { start: hm(7, 0), end: hm(8, 0) },
+  meeting: { start: hm(5, 30), end: hm(6, 0), weekdaysOnly: true }, // Mon–Fri
   dogWalk: { start: hm(10, 0), end: hm(11, 30) }, // 1000 Acre, home ~11a–12p
   liftDefault: { start: hm(15, 15), end: hm(16, 15) },
 };
