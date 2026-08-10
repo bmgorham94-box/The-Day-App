@@ -145,6 +145,11 @@ export const ROW = {
 };
 
 // ── Training sessions ────────────────────────────────────────────────────────
+// EQUIPMENT (authoritative — the home gym): REP PR-4000 rig (pull-up bar +
+// safeties), barbell + full plate set, flat/incline bench, dual-cable Athena
+// (2:1 ratio, any-height trolley), landmine, Rogue Echo rower.
+// There are NO DUMBBELLS — never add a "DB"/dumbbell movement. Use cable,
+// barbell, landmine, plate, or bodyweight variants only. (Enforced by tests.)
 // Each exercise is a plain string rendered as a tappable row (load memory).
 export const SESSIONS = {
   day1: {
@@ -154,7 +159,7 @@ export const SESSIONS = {
       'Wide Lat Pulldown 4×10–12',
       'Single-Arm Pulldown (L leads) 4×12ea',
       'Straight-Arm Pulldown 4×15',
-      'Chest-Supported DB Row 3×10–12',
+      'Chest-Supported Cable Row (chest on incline bench, Athena low trolley) 3×10–12',
       'Cable Face Pull 3×20',
       'Cable Curl + Hammer 3×10–12',
     ],
@@ -164,7 +169,7 @@ export const SESSIONS = {
     exercises: [
       'Incline Barbell Press 30–45° 4×6–10',
       'Low-to-High Cable Fly 4×12–15',
-      'Flat DB Press 3×8–12',
+      'Flat Barbell Press (rig safeties) 3×8–12',
       'Single-Arm Cable Lateral 4×12–20ea',
       'Reverse Cable Fly 4×12–15',
       'Overhead Cable Tricep Ext 3×12–15',
@@ -174,7 +179,7 @@ export const SESSIONS = {
     title: 'Day 3 · Legs · Unilateral', tone: 'legs',
     banner: 'Left leads every set — right matches, never beats. Stop shy of hip/knee pain.',
     exercises: [
-      'DB Step-Up (left +1 set) L4·R3',
+      'Plate Step-Up (hug a bumper, left +1 set) L4·R3',
       'Reverse Lunge L3·R3',
       'B-Stance RDL L3·R3',
       'Single-Leg Hip Thrust L3·R3',
@@ -198,7 +203,7 @@ export const SESSIONS = {
     title: 'Day 5 · Chest + Delts 2', tone: 'push',
     note: '+10 min posing after — quarter turns, lat spread, mandatories',
     exercises: [
-      'Incline DB Press 4×8–12',
+      'Incline Cable Press (bench between Athena columns) 4×8–12',
       'Mid Cable Fly 3×12–15',
       'Cable Lateral Raise 4×15–20',
       'Reverse Cable Fly 4×15',
