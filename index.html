@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5" />
-  <meta name="theme-color" content="#ECE7DD" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#141A16" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#F7F4EE" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#191817" media="(prefers-color-scheme: dark)" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="The Day" />
@@ -15,11 +15,10 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-180.png" />
   <link rel="icon" href="icons/icon-192.png" />
 
-  <!-- Fonts: load from Google, fall back to system sans-serif offline. Never serif. -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400;500;600;700&display=swap" />
+  <!-- Fonts are self-hosted in fonts/ (declared in styles.css) — no network fonts,
+       correct typography offline on first paint. Sans-serif only, never serif. -->
+  <link rel="preload" href="fonts/bricolage-grotesque-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -48,9 +47,9 @@
 
     <nav class="tabbar" id="tabbar" aria-label="Views">
       <button data-view="today" class="tab is-active" aria-current="page">Today</button>
-      <button data-view="adherence" class="tab">Adherence</button>
-      <button data-view="targets" class="tab">Targets</button>
-      <button data-view="settings" class="tab">Settings</button>
+      <button data-view="wod" class="tab">WOD</button>
+      <button data-view="fuel" class="tab">Fuel</button>
+      <button data-view="progress" class="tab">Progress</button>
     </nav>
   </div>
 
