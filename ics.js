@@ -3,9 +3,9 @@
 import { buildDay, parseISO, isoDate } from './engine.js';
 
 // Which block kinds become calendar alarms.
-const ALARMED = new Set(['meal', 'row', 'lift', 'meeting']);
+const ALARMED = new Set(['meal', 'row', 'lift', 'meeting', 'engine']);
 // Default durations (minutes) when a block has no explicit end.
-const DUR = { meal: 15, row: 40, lift: 60, meeting: 60, prep: 45 };
+const DUR = { meal: 15, row: 40, lift: 60, meeting: 60, prep: 60, engine: 25 };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function icsLocal(iso, mins) {
@@ -47,7 +47,7 @@ export function buildICS(startISO, days = 7) {
       const summary = b.kind === 'meal'
         ? `🍽 ${b.title}${b.p != null ? ` · ${b.p}P ${b.kcal}kcal` : ''}`
         : b.kind === 'lift' ? `🏋 ${b.title}`
-        : b.kind === 'row' ? `🚣 ${b.title}`
+        : b.kind === 'row' || b.kind === 'engine' ? `🚣 ${b.title}`
         : `📅 ${b.title}`;
       lines.push(
         'BEGIN:VEVENT',

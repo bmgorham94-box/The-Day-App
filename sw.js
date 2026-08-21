@@ -7,11 +7,11 @@
 //                    online open gets the newest deploy immediately; if the
 //                    network is slow/absent it falls back to the cached copy,
 //                    so the app still opens instantly offline.
-//   • Google Fonts → stale-while-revalidate, cache fallback (system-sans offline)
+//   • Fonts are same-origin (self-hosted) and precached — no third-party requests.
 // The SW takes control immediately (skipWaiting + claim) and app.js reloads
 // once when a new worker activates, so a fresh deploy lands on the next open.
 const NET_TIMEOUT = 2500; // ms before falling back to cache on a slow network
-const CACHE = 'theday-v2';
+const CACHE = 'theday-v3';
 const SHELL = [
   './',
   './index.html',
@@ -21,6 +21,14 @@ const SHELL = [
   './engine.js',
   './store.js',
   './ics.js',
+  './wod.js',
+  './fonts/inter-latin-400-normal.woff2',
+  './fonts/inter-latin-500-normal.woff2',
+  './fonts/inter-latin-600-normal.woff2',
+  './fonts/inter-latin-700-normal.woff2',
+  './fonts/bricolage-grotesque-latin-600-normal.woff2',
+  './fonts/bricolage-grotesque-latin-700-normal.woff2',
+  './fonts/bricolage-grotesque-latin-800-normal.woff2',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -45,14 +53,6 @@ self.addEventListener('activate', (e) => {
       .then(() => self.clients.claim())
   );
 });
-
-// Refresh a cache entry in the background; return the network response.
-function revalidate(cache, request) {
-  return fetch(request).then((res) => {
-    if (res && res.status === 200) cache.put(request, res.clone());
-    return res;
-  });
-}
 
 // Network-first with a timeout fallback to cache. The network fetch always
 // updates the cache when it lands (even after the timeout), so the copy stays
@@ -86,20 +86,6 @@ self.addEventListener('fetch', (e) => {
           return res;
         })
         .catch(() => caches.match('./index.html').then((r) => r || caches.match('./')))
-    );
-    return;
-  }
-
-  // Google Fonts: stale-while-revalidate; if offline and uncached, let it fail
-  // → CSS falls back to system sans.
-  if (url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com')) {
-    e.respondWith(
-      caches.open(CACHE).then((c) =>
-        c.match(request).then((hit) => {
-          const net = revalidate(c, request).catch(() => hit);
-          return hit || net;
-        })
-      )
     );
     return;
   }
