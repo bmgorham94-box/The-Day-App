@@ -1,12 +1,12 @@
 // The Day — WOD tab: the single training surface.
-// Hero → primer/rehab → strength (set logging) → engine (leg days, with timer)
-// → row → finish sequence. Today is loggable; other days are view-only plans.
+// Hero → rehab/primer → strength → engine (leg days) → row → finish.
 import {
-  PROGRAM, WEEK, APP, REHAB, PRIMER, ROWS, ROW_PROTOCOL, CRAMP_NOTE,
+  PROGRAM, WEEK, APP, REHAB, PRIMER, POSING, ROWS, ROW_PROTOCOL, CRAMP_NOTE,
   ENGINE_RULES, ATHLETE, fmtTime,
 } from './config.js';
 import {
   isoDate, dowOf, addDaysISO, engineFor, engineCycleInfo, engineShuffleOptions,
+  sessionMinutes,
 } from './engine.js';
 import { Store } from './store.js';
 
@@ -14,10 +14,10 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 const todayISO = () => isoDate(new Date());
 
-// selected date within the WOD tab (defaults to today on each app open)
+// selected WOD date (defaults to today)
 let selected = null;
 
-// ── Timer (timestamp-based — survives backgrounding without drift) ───────────
+// ── Timer (timestamp-based — survives backgrounding without drift) ──
 const Timer = {
   running: false, mode: null, startTs: 0, durationSec: 0, beepedMin: -1,
   intervalId: null, wakeLock: null, doneFired: false,
@@ -91,12 +91,12 @@ const Timer = {
     }
   },
 };
-// Re-acquire the wake lock when the tab returns to the foreground mid-timer.
+// Re-acquire the wake lock on return to foreground mid-timer.
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && Timer.running) Timer.acquireLock();
 });
 
-// ── Checklist helper ─────────────────────────────────────────────────────────
+// ── Checklist helper ──
 function checklist(iso, prefix, items, editable) {
   const ul = el('<ul class="steps"></ul>');
   items.forEach((it, i) => {
@@ -115,12 +115,14 @@ function checklist(iso, prefix, items, editable) {
   return ul;
 }
 
-// ── Sections ─────────────────────────────────────────────────────────────────
+// ── Sections ──
 function heroCard(iso) {
   const day = WEEK[dowOf(iso)];
   const s = PROGRAM[day.session];
+  const mins = sessionMinutes(s, PRIMER.minutes);
+  const est = mins ? ` · ~${mins} min${ROWS[dowOf(iso)] === 'engine' ? ' + engine' : ''}` : '';
   return el(`<div class="hero tone-${s.kind}">
-    <div class="eyebrow">${esc(APP.weekdayNames[dowOf(iso)])} · ${esc(iso)}</div>
+    <div class="eyebrow">${esc(APP.weekdayNames[dowOf(iso)])} · ${esc(iso)}${est}</div>
     <div class="hero-title">${esc(s.title)}</div>
     <div class="hero-sub">${esc(s.sub)}</div>
   </div>`);
@@ -171,9 +173,10 @@ function strengthCard(iso, editable) {
   table.appendChild(el(`<div class="ex-head"><span>Exercise</span><span>Target</span></div>`));
   for (const ex of s.exercises) {
     const row = el(`<div class="ex-row"></div>`);
-    const tags = (ex.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join(' ');
+    const tags = (ex.tags || []).map((t) => `<span class="tag${t === 'OPTIONAL' ? ' optional' : ''}">${esc(t)}</span>`).join(' ');
     row.appendChild(el(`<div class="ex-name"><span>${esc(ex.name)}</span> ${tags} <span class="ex-scheme">${esc(ex.scheme)}</span></div>`));
     row.appendChild(el(`<div class="ex-cue">${esc(ex.cue)}</div>`));
+    if (ex.note) row.appendChild(el(`<div class="ex-note">${esc(ex.note)}</div>`));
     const last = Store.lastSets(iso, ex.id);
     if (last) {
       const txt = last.sets.map((x) => `${x.w || '—'}×${x.r || '—'}`).join(' · ');
@@ -276,7 +279,7 @@ function finishCard(iso, editable) {
   return card;
 }
 
-// ── Main render ──────────────────────────────────────────────────────────────
+// ── Main render ──
 export function renderWOD(root) {
   const t = todayISO();
   if (!selected || dayDiffWeek(selected, t)) selected = t;
@@ -312,6 +315,16 @@ export function renderWOD(root) {
     card.appendChild(checklist(iso, 'rehab1', REHAB.moves, editable));
     card.appendChild(el(`<div class="callout" style="margin-top:10px">${esc(REHAB.rules)}</div>`));
     root.appendChild(card);
+
+    // Posing practice — a checklist item with notes, not a logged lift.
+    const posing = el(`<div class="panel-card"></div>`);
+    posing.appendChild(el(`<h2>${esc(POSING.name)} · ${esc(POSING.dose)}</h2>`));
+    posing.appendChild(el(`<div class="desc">${esc(POSING.cue)}</div>`));
+    posing.appendChild(checklist(iso, 'posing', [{ name: 'Ran the posing round', dose: POSING.dose }], editable));
+    posing.appendChild(el(`<div class="field"><label for="posingNote">Posing notes</label>
+      <input id="posingNote" type="text" placeholder="which pose fought back today?" value="${esc(Store.getNote(iso + ':posing'))}" data-posing-note ${editable ? '' : 'disabled'} /></div>`));
+    root.appendChild(posing);
+
     root.appendChild(rowCard(iso, editable));
     root.appendChild(finishCard(iso, editable));
     return;
@@ -335,7 +348,7 @@ function dayDiffWeek(iso, t) {
   return iso < weekStart || iso > weekEnd;
 }
 
-// ── Events (delegated from app.js body listener) ─────────────────────────────
+// ── Events (delegated from app.js body listener) ──
 // Returns true if the event was handled (app should re-render the WOD view).
 export function handleWODClick(e, rerender, toast) {
   const t = e.target;
@@ -414,6 +427,10 @@ export function handleWODChange(e) {
     const key = (t.dataset.setW || t.dataset.setR);
     const exId = key.slice(0, key.lastIndexOf(':'));
     Store.setSets(iso, exId, collectSets(exId));
+    return true;
+  }
+  if (t.matches('[data-posing-note]')) {
+    Store.setNote(iso + ':posing', t.value.trim());
     return true;
   }
   if (t.matches('[data-row-dist],[data-row-cal]')) {

@@ -1,20 +1,20 @@
 // The Day — app orchestration. Vanilla ES module, no framework.
 // Tabs: Today · WOD · Fuel · Progress.
-import { APP, WEEK, PROGRAM, ROWS, REHAB, FREQ_NOTE, ATHLETE, fmtTime } from './config.js';
+import { APP, WEEK, PROGRAM, PRIMER, ROWS, REHAB, FREQ_NOTE, ATHLETE, fmtTime } from './config.js';
 import {
   isoDate, parseISO, dowOf, addDaysISO, resolvePhase, resolveEra, targetsFor,
-  isCheckinDay, buildDay, mealsFor, mealSum, streak,
+  isCheckinDay, buildDay, mealsFor, mealSum, streak, sessionMinutes,
 } from './engine.js';
 import { Store } from './store.js';
 import { downloadICS } from './ics.js';
 import { renderWOD, handleWODClick, handleWODChange, wodJumpToToday } from './wod.js';
 
-// ── Live clock ───────────────────────────────────────────────────────────────
+// ── Live clock ──
 const now = () => new Date();
 const todayISO = () => isoDate(now());
 const nowMins = () => { const d = now(); return d.getHours() * 60 + d.getMinutes(); };
 
-// ── App state ────────────────────────────────────────────────────────────────
+// ── App state ──
 let state = {
   view: 'today',
   selected: todayISO(),   // planning date for the Today spine
@@ -25,7 +25,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// ── Rendering ────────────────────────────────────────────────────────────────
+// ── Rendering ──
 function render() {
   renderTopbar();
   const isToday = state.selected === todayISO();
@@ -211,7 +211,7 @@ function renderSpine(isToday) {
   }
 }
 
-// ── Today panels: session card, streak/steps stats, late, totals ─────────────
+// ── Today panels: session card, streak/steps stats, late, totals ──
 function rehabRoundDone(iso, prefix) {
   const n = REHAB.moves.length;
   // a round counts once at least 3 of its items are checked (smash is optional)
@@ -221,7 +221,7 @@ function rehabRoundDone(iso, prefix) {
 }
 function primerDone(iso) {
   let hit = 0;
-  for (let i = 0; i < 4; i++) if (Store.isChecked(iso, `primer:${i}`)) hit++;
+  for (let i = 0; i < PRIMER.steps.length; i++) if (Store.isChecked(iso, `primer:${i}`)) hit++;
   return hit >= 3;
 }
 function rehabDayDone(iso) {
@@ -241,6 +241,14 @@ function proteinLanded(iso) {
 function trainedDay(iso) {
   return Store.isChecked(iso, 'lift');
 }
+// Daily vacuum: the one-tap check, or the Mon/Thu programmed sets counting toward it.
+function vacuumDone(iso) {
+  if (Store.isChecked(iso, 'vacuum')) return true;
+  const dow = dowOf(iso);
+  if (dow === 1) return Store.getSets(iso, 'mon-8').length > 0;
+  if (dow === 4) return Store.getSets(iso, 'thu-9').length > 0;
+  return false;
+}
 
 function renderPanelsToday(isToday) {
   const panels = $('#panels');
@@ -252,8 +260,10 @@ function renderPanelsToday(isToday) {
   if (!isToday) { panels.appendChild(el(`<div class="read-only-note">Read-only planning view · totals + logging live on Today.</div>`)); return; }
 
   // Session card → WOD
+  const sessMins = sessionMinutes(session, PRIMER.minutes);
+  const sessEst = sessMins ? ` · ~${sessMins} min${ROWS[dowOf(iso)] === 'engine' ? ' + engine' : ''}` : '';
   const sessCard = el(`<div class="hero tone-${session.kind}" style="margin-bottom:14px">
-    <div class="eyebrow">${escapeHtml(day.name)} · today's session</div>
+    <div class="eyebrow">${escapeHtml(day.name)} · today's session${sessEst}</div>
     <div class="hero-title">${escapeHtml(session.title)}</div>
     <div class="hero-sub">${escapeHtml(session.sub)}</div>
   </div>`);
@@ -296,6 +306,17 @@ function renderPanelsToday(isToday) {
     <div class="spark-note">Manual on purpose: a browser PWA can't read Apple Health. Type it from your phone once a day.</div>
   </div>`);
   panels.appendChild(stats);
+
+  // Daily vacuum — aesthetic work, tracked apart from the piriformis rehab.
+  const vacToday = vacuumDone(iso);
+  const vacStreak = streak(t, vacuumDone);
+  panels.appendChild(el(`<div class="panel-card" style="display:flex;align-items:center;gap:12px">
+    <button class="check ${vacToday ? 'on' : ''}" data-vacuum aria-pressed="${vacToday}" aria-label="Mark stomach vacuum done">${vacToday ? '✓' : ''}</button>
+    <div style="flex:1">
+      <div style="font-weight:700;font-size:14.5px">Stomach vacuum · 1×/day minimum</div>
+      <div class="spark-note" style="margin-top:2px">Mon/Thu session sets count toward it. Streak: <strong>${vacStreak}</strong></div>
+    </div>
+  </div>`));
 
   // Running late
   const shift = Store.getShift(iso);
@@ -345,7 +366,7 @@ function sundayReview() {
   </div>`);
 }
 
-// ── Adherence stats ──────────────────────────────────────────────────────────
+// ── Adherence stats ──
 function dayStats(iso) {
   const day = WEEK[dowOf(iso)];
   const target = targetsFor(iso, day.type);
@@ -383,7 +404,7 @@ function weekRatios() {
   return acc;
 }
 
-// ── Fuel (targets + weight) ──────────────────────────────────────────────────
+// ── Fuel (targets + weight) ──
 function renderFuel() {
   const panels = $('#panels');
   panels.innerHTML = '';
@@ -441,7 +462,7 @@ function sparkline(log) {
   </svg>`;
 }
 
-// ── Progress (adherence + data/settings) ─────────────────────────────────────
+// ── Progress (adherence + data/settings) ──
 function renderProgress() {
   const panels = $('#panels');
   panels.innerHTML = '';
@@ -511,7 +532,7 @@ function renderProgress() {
   </div>`));
 }
 
-// ── Toast / undo ─────────────────────────────────────────────────────────────
+// ── Toast / undo ──
 let toastTimer = null;
 function toast(msg, undoFn) {
   const t = $('#toast');
@@ -523,7 +544,7 @@ function toast(msg, undoFn) {
 }
 function hideToast() { $('#toast').hidden = true; }
 
-// ── Events ───────────────────────────────────────────────────────────────────
+// ── Events ──
 function onClick(e) {
   const t = e.target;
 
@@ -546,6 +567,13 @@ function onClick(e) {
     const id = check.dataset.check;
     const on = Store.toggleCheck(state.selected, id);
     toast(on ? 'Logged ✓' : 'Un-logged', () => { Store.toggleCheck(state.selected, id); render(); });
+    render();
+    return;
+  }
+
+  if (t.closest('[data-vacuum]')) {
+    const on = Store.toggleCheck(todayISO(), 'vacuum');
+    toast(on ? 'Vacuum logged ✓' : 'Vacuum un-logged');
     render();
     return;
   }
@@ -610,7 +638,7 @@ function doExport() {
   toast('Data exported');
 }
 
-// ── Live tick (countdown, now-dot, midnight rollover) ────────────────────────
+// ── Live tick (countdown, now-dot, midnight rollover) ──
 function tick() {
   const t = todayISO();
   if (t !== lastToday) {
@@ -625,7 +653,7 @@ function tick() {
   }
 }
 
-// ── Boot ─────────────────────────────────────────────────────────────────────
+// ── Boot ──
 function boot() {
   // Seed the last bodyweight check-in once, if the log is empty.
   if (!Object.keys(Store.weightLog()).length) Store.setWeight(ATHLETE.bodyweight.iso, ATHLETE.bodyweight.lb);
@@ -638,7 +666,7 @@ function boot() {
   registerServiceWorker();
 }
 
-// ── Service worker: register + auto-update installed copies ──────────────────
+// ── Service worker ──
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', async () => {

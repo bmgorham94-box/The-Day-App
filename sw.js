@@ -1,15 +1,7 @@
-// The Day — service worker. Auto-updating: deployed edits reach installed
-// copies without a manual version bump.
-//
-// Strategy:
-//   • navigations  → network-first (fresh HTML when online, cached offline)
-//   • same-origin  → network-first with a fast timeout, cache fallback: an
-//                    online open gets the newest deploy immediately; if the
-//                    network is slow/absent it falls back to the cached copy,
-//                    so the app still opens instantly offline.
-//   • Fonts are same-origin (self-hosted) and precached — no third-party requests.
-// The SW takes control immediately (skipWaiting + claim) and app.js reloads
-// once when a new worker activates, so a fresh deploy lands on the next open.
+// The Day — service worker. Auto-updating, offline-first.
+// Navigations + same-origin: network-first (timeout → cache) so an online
+// open gets the newest deploy; offline serves the precached copy. Fonts are
+// same-origin and precached. skipWaiting+claim; app reloads once on update.
 const NET_TIMEOUT = 2500; // ms before falling back to cache on a slow network
 const CACHE = 'theday-v3';
 const SHELL = [

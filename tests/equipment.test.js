@@ -21,7 +21,7 @@ function allMovementText() {
     if (e.flareSwap) out.push(e.flareSwap);
   }
   for (const m of REHAB.moves) out.push(m.name);
-  for (const s of PRIMER.steps) out.push(s);
+  for (const s of PRIMER.steps) out.push(typeof s === 'string' ? s : `${s.name} ${s.cue || ''}`);
   return out;
 }
 

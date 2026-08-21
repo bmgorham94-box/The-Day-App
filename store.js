@@ -54,7 +54,7 @@ function prune(state, todayISO) {
 export const Store = {
   all: () => read(),
 
-  // ── Checks (meals, prep steps, rehab items, lift/row/engine done) ──────────
+  // ── Checks (meals, prep steps, rehab items, lift/row/engine done) ──
   isChecked(iso, id) {
     const s = read();
     return !!(s.checks[iso] && s.checks[iso][id]);
@@ -71,7 +71,7 @@ export const Store = {
     return read().checks[iso] || {};
   },
 
-  // ── Weight log ─────────────────────────────────────────────────────────────
+  // ── Weight log ──
   setWeight(iso, value) {
     const s = read();
     if (value == null || value === '' || isNaN(value)) delete s.weight[iso];
@@ -80,7 +80,7 @@ export const Store = {
   },
   weightLog() { return read().weight; },
 
-  // ── Running-late shift ─────────────────────────────────────────────────────
+  // ── Running-late shift ──
   getShift(iso) { return read().shift[iso] || 0; },
   setShift(iso, mins) {
     const s = read();
@@ -88,7 +88,7 @@ export const Store = {
     write(prune(s, iso));
   },
 
-  // ── Set-by-set workout log ─────────────────────────────────────────────────
+  // ── Set-by-set workout log ──
   getSets(iso, exId) {
     const s = read();
     return (s.sets[iso] && s.sets[iso][exId]) || [];
@@ -110,7 +110,7 @@ export const Store = {
     return { iso: d, sets: s.sets[d][exId] };
   },
 
-  // ── Steps (manual) ─────────────────────────────────────────────────────────
+  // ── Steps (manual) ──
   setSteps(iso, value) {
     const s = read();
     if (value == null || value === '' || isNaN(value)) delete s.steps[iso];
@@ -120,7 +120,7 @@ export const Store = {
   getSteps(iso) { return read().steps[iso]; },
   stepsLog() { return read().steps; },
 
-  // ── Row extras ─────────────────────────────────────────────────────────────
+  // ── Row extras ──
   setRowData(iso, data) {
     const s = read();
     if (!data || (!data.dist && !data.cal)) delete s.rowdata[iso];
@@ -129,7 +129,7 @@ export const Store = {
   },
   getRowData(iso) { return read().rowdata[iso] || {}; },
 
-  // ── Engine rotation + scores ───────────────────────────────────────────────
+  // ── Engine rotation + scores ──
   engineState() { return read().engine; },
   engineSwap(iso, engineId) {
     const s = read();
@@ -153,7 +153,7 @@ export const Store = {
     write(prune(s, iso));
   },
 
-  // ── Settings (Hevy key, etc.) ──────────────────────────────────────────────
+  // ── Settings (Hevy key, etc.) ──
   getSetting(k) { return read().settings[k]; },
   setSetting(k, v) {
     const s = read();
@@ -161,7 +161,7 @@ export const Store = {
     write(s);
   },
 
-  // ── Sunday review notes ────────────────────────────────────────────────────
+  // ── Sunday review notes ──
   getNote(iso) { return read().notes[iso] || ''; },
   setNote(iso, v) {
     const s = read();
@@ -169,7 +169,7 @@ export const Store = {
     write(s);
   },
 
-  // ── Import / export ────────────────────────────────────────────────────────
+  // ── Import / export ──
   export() { return JSON.stringify(read(), null, 2); },
   import(json) {
     const parsed = typeof json === 'string' ? JSON.parse(json) : json;
