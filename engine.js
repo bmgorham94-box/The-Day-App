@@ -6,7 +6,7 @@ import {
   PREP_STEPS, WEEK, ANCHORS,
 } from './config.js';
 
-// ── Date helpers (calendar-date safe — no timezone drift) ────────────────────
+// ── Date helpers (calendar-date safe — no timezone drift) ──
 // ISO date string "YYYY-MM-DD" for a Date, in LOCAL time.
 export function isoDate(d) {
   const y = d.getFullYear();
@@ -35,7 +35,7 @@ export function addDaysISO(iso, n) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 }
 
-// ── Phase resolver ───────────────────────────────────────────────────────────
+// ── Phase resolver ──
 export function resolvePhase(iso) {
   for (const p of PHASES) {
     if (iso >= p.start && iso < p.end) return p;
@@ -44,7 +44,7 @@ export function resolvePhase(iso) {
   return PHASES[PHASES.length - 1];
 }
 
-// ── Meal-era resolver ────────────────────────────────────────────────────────
+// ── Meal-era resolver ──
 export function resolveEra(iso) {
   for (const e of MEAL_ERAS) {
     if (iso >= e.start && iso < e.end) return e;
@@ -60,13 +60,13 @@ export function targetsFor(iso, type) {
   return phase.targets[type];
 }
 
-// ── Check-in predicate: every 14 days anchored to CHECKIN_ANCHOR ─────────────
+// ── Check-in predicate: every 14 days anchored to CHECKIN_ANCHOR ──
 export function isCheckinDay(iso) {
   const diff = dayDiff(CHECKIN_ANCHOR, iso);
   return diff % CHECKIN_INTERVAL_DAYS === 0;
 }
 
-// ── Meal helpers ─────────────────────────────────────────────────────────────
+// ── Meal helpers ──
 export function mealsFor(iso) {
   const day = WEEK[dowOf(iso)];
   return resolveEra(iso).meals[day.type];
@@ -75,15 +75,29 @@ export function mealSum(list) {
   return list.reduce((a, m) => ({ p: a.p + m.p, kcal: a.kcal + m.kcal }), { p: 0, kcal: 0 });
 }
 
-// ── Session / row helpers ────────────────────────────────────────────────────
+// ── Session / row helpers ──
 export function sessionFor(iso) {
   return PROGRAM[WEEK[dowOf(iso)].session];
+}
+
+// Session length estimate from set count + rest defaults (~2.5 min per working
+// set incl. rest, +5 min setup, + primer on leg days). OPTIONAL work is
+// excluded — the estimate is the day you actually owe. Rounded to 5 min.
+export function sessionMinutes(session, primerMinutes = 0) {
+  if (!session || !session.exercises.length) return 0;
+  let sets = 0;
+  for (const ex of session.exercises) {
+    if ((ex.tags || []).includes('OPTIONAL')) continue;
+    sets += parseInt(ex.scheme, 10) || 3;
+  }
+  const mins = 5 + sets * 2.5 + (session.kind === 'legs' ? primerMinutes : 0);
+  return Math.round(mins / 5) * 5;
 }
 export function rowFor(iso) {
   return ROWS[dowOf(iso)]; // {min,max} | 'engine' | null
 }
 
-// ── Engine rotation ──────────────────────────────────────────────────────────
+// ── Engine rotation ──
 // State shape (persisted): { used: {wed:[ids], sat:[ids]}, swaps: {iso:id}, done: {iso:id} }
 // Rotation is used-list based: the scheduled engine for a day is the first
 // pool engine not yet used this cycle; completing one consumes it; after all 8
@@ -129,7 +143,7 @@ export function engineShuffleOptions(iso, state) {
   return enginePool(info.pool).filter((e) => !used.includes(e.id) && e.id !== current.id);
 }
 
-// ── Streaks (neutral counters computed from logged history) ──────────────────
+// ── Streaks (neutral counters computed from logged history) ──
 // `hit(iso)` decides a day; `skip(iso)` marks days that don't count either way.
 export function streak(todayISO, hit, skip = () => false, maxBack = 120) {
   let n = 0;
@@ -143,7 +157,7 @@ export function streak(todayISO, hit, skip = () => false, maxBack = 120) {
   return n;
 }
 
-// ── Day builder: ordered spine blocks for a date ─────────────────────────────
+// ── Day builder: ordered spine blocks for a date ──
 // shiftMins: "running late" offset applied to blocks at/after the pre-lift meal.
 export function buildDay(iso, shiftMins = 0) {
   const dow = dowOf(iso);
