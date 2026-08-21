@@ -4,7 +4,7 @@ A personal daily-planner PWA for one user. It answers one question instantly —
 **"what am I doing right now, and what's next?"** — and tracks meals against exact
 macro targets with one-tap check-offs.
 
-No frameworks. No backend. No accounts. Vanilla JS + HTML + CSS, ~50 KB of shipped
+No frameworks. No backend. No accounts. Vanilla JS + HTML + CSS, <100 KB of shipped
 JavaScript, installable to the iOS home screen and fully offline-capable.
 
 ---
@@ -28,6 +28,15 @@ JavaScript, installable to the iOS home screen and fully offline-capable.
   the notification layer. Regenerate any time from Settings.
 - **Data export / import** — all state as a single JSON file.
 - **Week strip + tabs** — today is ringed; other days are read-only planning views.
+- **WOD tab** — the training surface: day hero, rehab/primer checklists (Piriformis
+  Protocol v2), set-by-set strength logging with last-session targets, leg-day
+  **engine workouts** from a 16-strong rotating library (8-week no-repeat loop,
+  shuffle control, score logging) with a drift-free interval timer (Wake Lock +
+  timestamp math), post-lift row tracking, and a finish stretch sequence.
+- **Fuel / Progress tabs** — targets + weight trend; 14-day adherence, calendar
+  export, JSON data export/import, Hevy key.
+- **Self-hosted fonts** — Inter + Bricolage Grotesque woff2 live in `fonts/` and are
+  precached, so typography is correct offline on first paint. No Google Fonts request.
 
 ### A note on notifications
 
@@ -54,11 +63,13 @@ Common edits:
 | When the meal system swaps | `MFF_START` (one constant) |
 | Add a future meal system | append a new entry to `MEAL_ERAS` |
 | Which session runs on a given day | `WEEK[dow].session` |
-| A session's exercises | `SESSIONS.dayN.exercises` |
 | Dinner for a day | `WEEK[dow].dinner` |
 | Phase dates / Phase 2–3 anchors | `PHASES` |
 | Check-in cadence | `CHECKIN_ANCHOR` / `CHECKIN_INTERVAL_DAYS` |
-| Row protocol / hydration note | `ROW` |
+| Training sessions / cues / tags | `PROGRAM` |
+| Engine workouts (the 16) | `ENGINES` |
+| Rehab sequence + rules | `REHAB` / `PRIMER` |
+| Row prescriptions | `ROWS` / `ROW_PROTOCOL` / `CRAMP_NOTE` |
 
 **Meals are modeled as dated eras.** The user changes his meal system periodically, so
 meals *and* their macro targets live in `MEAL_ERAS` — each era has a `[start, end)` date
@@ -82,8 +93,8 @@ fully offline from the last cached version.
 
 ## Re-exporting the calendar (`.ics`)
 
-Open the app → **Settings** → **Export 7-day .ics**. It generates a week of events
-starting today, each with a 10-minute alarm (meals, rows, lift, daily meeting). Open the
+Open the app → **Progress** → **Export 7-day .ics**. It generates a week of events
+starting today, each with a 10-minute alarm (meals, rows, engines, lifts, the daily meeting). Open the
 downloaded file with iOS Calendar / Apple Calendar to import. Re-export whenever the plan
 changes — UIDs are stable, so re-importing updates existing events rather than duplicating
 them.
@@ -134,8 +145,9 @@ node scripts/gen-icons.mjs
 
 ```
 index.html            App shell
-styles.css            Design system (light default + auto dark, safe-area insets)
-app.js                UI orchestration
+styles.css            Design system — locked "printed program" palette as tokens
+app.js                UI orchestration (Today · WOD · Fuel · Progress)
+wod.js                WOD tab: set logging, engine rotation, interval timer
 config.js             ← single source of truth (the plan)
 engine.js             Pure date / phase / day-building logic (imported by app + tests)
 store.js              localStorage persistence
@@ -143,6 +155,7 @@ ics.js                Calendar export
 sw.js                 Service worker (offline-first)
 manifest.webmanifest  PWA manifest
 icons/                192 / 512 / maskable / apple-touch-180
+fonts/                Self-hosted Inter + Bricolage Grotesque (woff2)
 scripts/gen-icons.mjs Icon generator
 tests/                node:test unit tests
 ```

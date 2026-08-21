@@ -41,7 +41,8 @@ function encodePNG(width, height, rgba) {
 
 // ── Drawing ───────────────────────────────────────────────────────────────────
 const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-const PAPER = hex('#ECE7DD'), FOREST = hex('#2E382B'), CLAY = hex('#C56A3A'), LINE = hex('#DED8CA'), SAGE = hex('#8FA079');
+// Palette v2 ("printed program") — paper / ink field / rust now-dot / olive bars.
+const PAPER = hex('#F7F4EE'), FOREST = hex('#26241F'), CLAY = hex('#B44A2C'), LINE = hex('#DDD7C8'), SAGE = hex('#5C5B3C');
 
 function draw(size, { maskable = false } = {}) {
   const buf = Buffer.alloc(size * size * 4);
