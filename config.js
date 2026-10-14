@@ -111,7 +111,7 @@ export const PLAN = {
           { id: 'la-1', name: 'Leg press, feet mid', sets: '3 × 10 to 12' },
           { id: 'la-2', name: 'Hack squat', sets: '3 × 8 to 10', note: 'If it bothers the hip, Smith squat with heels elevated.' },
           { id: 'la-3', name: 'Leg extension, slow on the way down', sets: '3 × 12 to 15' },
-          { id: 'la-4', name: 'Dumbbell Bulgarian split squat', sets: '2 × 10 each side', tags: ['LEFT FIRST'] },
+          { id: 'la-4', name: 'Single leg leg press, feet mid', sets: '2 × 10 to 12 each side', tags: ['LEFT FIRST'] },
           { id: 'la-5', name: 'Seated calf raise', sets: '4 × 12 to 15' },
           { id: 'la-6', name: 'Seated leg curl, light', sets: '2 × 12' },
         ] },
