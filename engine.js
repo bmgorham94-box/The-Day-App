@@ -1,30 +1,20 @@
-// The Day — pure date/phase/day logic. No DOM. Imported by app + tests.
-import {
-  hm, fmtTime, isWeekend, mealTime,
-  PHASES, CHECKIN_ANCHOR, CHECKIN_INTERVAL_DAYS,
-  MEAL_ERAS, PROGRAM, ROWS, ROW_PROTOCOL, ENGINES,
-  PREP_STEPS, WEEK, ANCHORS,
-} from './config.js';
+// The Day: pure date, meal, and day building logic. No DOM. Used by app + tests.
+import { hm, fmtTime, isWeekend, PLAN, WEEK } from './config.js';
 
-// ── Date helpers (calendar-date safe — no timezone drift) ──
-// ISO date string "YYYY-MM-DD" for a Date, in LOCAL time.
+// ── Date helpers (calendar date safe, no timezone drift) ──
 export function isoDate(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
-// Parse "YYYY-MM-DD" to a UTC-noon Date (stable for day-diff math).
 export function parseISO(s) {
   const [y, m, d] = s.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
 }
-// Whole-day difference b - a (both ISO strings), calendar-accurate.
 export function dayDiff(aISO, bISO) {
-  const MS = 86400000;
-  return Math.round((parseISO(bISO) - parseISO(aISO)) / MS);
+  return Math.round((parseISO(bISO) - parseISO(aISO)) / 86400000);
 }
-// Day-of-week 0..6 for an ISO date.
 export function dowOf(iso) {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, m - 1, d).getDay();
@@ -35,223 +25,163 @@ export function addDaysISO(iso, n) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 }
 
-// ── Phase resolver ──
-export function resolvePhase(iso) {
-  for (const p of PHASES) {
-    if (iso >= p.start && iso < p.end) return p;
-  }
-  if (iso < PHASES[0].start) return PHASES[0];
-  return PHASES[PHASES.length - 1];
-}
+// ── Day type ──
+export function dayType(iso) { return WEEK[dowOf(iso)].type; }   // 'training' | 'rest'
 
-// ── Meal-era resolver ──
-export function resolveEra(iso) {
-  for (const e of MEAL_ERAS) {
-    if (iso >= e.start && iso < e.end) return e;
-  }
-  if (iso < MEAL_ERAS[0].start) return MEAL_ERAS[0];
-  return MEAL_ERAS[MEAL_ERAS.length - 1];
-}
-
-// Targets for a given date + day type ('training' | 'rest').
-export function targetsFor(iso, type) {
-  const phase = resolvePhase(iso);
-  if (phase.useEraTargets) return resolveEra(iso).targets[type];
-  return phase.targets[type];
-}
-
-// ── Check-in predicate: every 14 days anchored to CHECKIN_ANCHOR ──
-export function isCheckinDay(iso) {
-  const diff = dayDiff(CHECKIN_ANCHOR, iso);
-  return diff % CHECKIN_INTERVAL_DAYS === 0;
-}
-
-// ── Meal helpers ──
+// ── Meals: resolve the day's list from fixed slots + the rotation ──
 export function mealsFor(iso) {
-  const day = WEEK[dowOf(iso)];
-  return resolveEra(iso).meals[day.type];
+  const dow = dowOf(iso);
+  const type = dayType(iso);
+  const rot = PLAN.meals.rotation[dow];
+  const out = [];
+  for (const m of PLAN.meals.fixed) {
+    if (m.trainingOnly && type !== 'training') continue;
+    if (m.restOnly && type !== 'rest') continue;
+    let entry;
+    if (m.rotation) {
+      const r = rot[m.rotation];
+      entry = { id: m.id, name: r.name, kcal: r.kcal, p: r.p, c: r.c, f: r.f, src: m.src };
+    } else if (m.training || m.rest) {
+      const v = type === 'training' ? m.training : m.rest;
+      entry = { id: m.id, name: v.name, kcal: v.kcal, p: v.p, c: v.c, f: v.f, src: v.src };
+    } else {
+      entry = { id: m.id, name: m.name, kcal: m.kcal, p: m.p, c: m.c, f: m.f, src: m.src };
+    }
+    entry.time = (isWeekend(dow) && m.timeWe != null) ? m.timeWe : m.time;
+    out.push(entry);
+  }
+  out.sort((a, b) => a.time - b.time);
+  return out;
 }
 export function mealSum(list) {
-  return list.reduce((a, m) => ({ p: a.p + m.p, kcal: a.kcal + m.kcal }), { p: 0, kcal: 0 });
+  return list.reduce((a, m) => ({ kcal: a.kcal + m.kcal, p: a.p + m.p, c: a.c + m.c, f: a.f + m.f }),
+    { kcal: 0, p: 0, c: 0, f: 0 });
+}
+// The day's target is the day's own meal total; real rotation macros, no tildes.
+export function targetsFor(iso) { return mealSum(mealsFor(iso)); }
+
+// ── Check ins: every 14 days from the anchor ──
+export function isCheckinDay(iso) {
+  const diff = dayDiff(PLAN.tracking.checkinAnchor, iso);
+  return diff >= 0 && diff % PLAN.tracking.checkinInterval === 0;
 }
 
-// ── Session / row helpers ──
-export function sessionFor(iso) {
-  return PROGRAM[WEEK[dowOf(iso)].session];
+// ── Monthly: first Saturday of the month (photos + InBody + body fat field) ──
+export function isFirstSaturday(iso) {
+  return dowOf(iso) === 6 && Number(iso.slice(8)) <= 7;
 }
 
-// Session length estimate from set count + rest defaults (~2.5 min per working
-// set incl. rest, +5 min setup, + primer on leg days). OPTIONAL work is
-// excluded — the estimate is the day you actually owe. Rounded to 5 min.
-export function sessionMinutes(session, primerMinutes = 0) {
-  if (!session || !session.exercises.length) return 0;
+// ── Reintroduction phase for leg days ──
+// Returns { n: 1|2, label, sets? } during the ramp, or null once overload is normal.
+export function reintroPhase(iso) {
+  const r = PLAN.training.reintro;
+  if (iso >= r.p1.start && iso < r.p1.end) return { n: 1, label: r.p1.label, sets: r.p1.sets };
+  if (iso >= r.p2.start && iso < r.p2.end) return { n: 2, label: r.p2.label };
+  return null;
+}
+export function reintroBanActive(iso) { return iso < PLAN.training.reintro.banUntil; }
+// Render a set scheme under the active phase: phase 1 caps every lift at 2 sets.
+export function setsForPhase(sets, phase) {
+  if (!phase || !phase.sets) return sets;
+  return sets.replace(/^\d+/, (n) => String(Math.min(Number(n), phase.sets)));
+}
+
+// ── Sessions ──
+export function sessionFor(iso) { return PLAN.training.days[WEEK[dowOf(iso)].session]; }
+export function isLegDay(iso) { return sessionFor(iso).kind === 'legs'; }
+
+// Session length estimate: set count × 2.5 min + setup. Rounded to 5.
+export function sessionMinutes(iso) {
+  const s = sessionFor(iso);
+  if (!s.exercises.length) return 0;
+  const phase = s.kind === 'legs' ? reintroPhase(iso) : null;
   let sets = 0;
-  for (const ex of session.exercises) {
-    if ((ex.tags || []).includes('OPTIONAL')) continue;
-    sets += parseInt(ex.scheme, 10) || 3;
-  }
-  const mins = 5 + sets * 2.5 + (session.kind === 'legs' ? primerMinutes : 0);
-  return Math.round(mins / 5) * 5;
-}
-export function rowFor(iso) {
-  return ROWS[dowOf(iso)]; // {min,max} | 'engine' | null
+  for (const ex of s.exercises) sets += parseInt(setsForPhase(ex.sets, phase), 10) || 3;
+  return Math.round((5 + sets * 2.5) / 5) * 5;
 }
 
-// ── Engine rotation ──
-// State shape (persisted): { used: {wed:[ids], sat:[ids]}, swaps: {iso:id}, done: {iso:id} }
-// Rotation is used-list based: the scheduled engine for a day is the first
-// pool engine not yet used this cycle; completing one consumes it; after all 8
-// the cycle resets. A shuffle stores swaps[iso] (still drawn from unused, so
-// rotation stays honest). Past days show what was actually done.
-export function enginePool(pool) {
-  return ENGINES.filter((e) => e.pool === pool);
+// ── Body fat gate ──
+export function latestBodyFat(bfLog) {
+  const days = Object.keys(bfLog || {}).sort();
+  return days.length ? bfLog[days[days.length - 1]] : null;
 }
-export function engineFor(iso, state) {
-  const dow = dowOf(iso);
-  const pool = dow === 3 ? 'wed' : dow === 6 ? 'sat' : null;
-  if (!pool) return null;
-  const s = state || { used: {}, swaps: {}, done: {} };
-  if (s.done && s.done[iso]) return ENGINES.find((e) => e.id === s.done[iso]) || null;
-  if (s.swaps && s.swaps[iso]) {
-    const sw = ENGINES.find((e) => e.id === s.swaps[iso]);
-    if (sw) return sw;
-  }
-  const list = enginePool(pool);
-  const used = (s.used && s.used[pool]) || [];
-  const next = list.find((e) => !used.includes(e.id));
-  return next || list[0];
-}
-// Cycle caption data: position (1-based), and the engine after `current`.
-export function engineCycleInfo(iso, state) {
-  const dow = dowOf(iso);
-  const pool = dow === 3 ? 'wed' : dow === 6 ? 'sat' : null;
-  if (!pool) return null;
-  const s = state || { used: {}, swaps: {}, done: {} };
-  const list = enginePool(pool);
-  const used = (s.used && s.used[pool]) || [];
-  const current = engineFor(iso, state);
-  const unused = list.filter((e) => !used.includes(e.id) && e.id !== current.id);
-  return { pos: Math.min(used.length + 1, list.length), of: list.length, next: unused[0] || list[0], pool };
-}
-// Options a shuffle may swap to (unused this cycle, excluding current).
-export function engineShuffleOptions(iso, state) {
-  const info = engineCycleInfo(iso, state);
-  if (!info) return [];
-  const s = state || { used: {}, swaps: {}, done: {} };
-  const used = (s.used && s.used[info.pool]) || [];
-  const current = engineFor(iso, state);
-  return enginePool(info.pool).filter((e) => !used.includes(e.id) && e.id !== current.id);
+export function bfGateTripped(bfLog) {
+  const bf = latestBodyFat(bfLog);
+  return bf != null && bf >= PLAN.tracking.bfGatePct;
 }
 
-// ── Streaks (neutral counters computed from logged history) ──
-// `hit(iso)` decides a day; `skip(iso)` marks days that don't count either way.
+// ── Streaks (neutral counters from logged history) ──
 export function streak(todayISO, hit, skip = () => false, maxBack = 120) {
   let n = 0;
   for (let i = 0; i < maxBack; i++) {
     const iso = addDaysISO(todayISO, -i);
     if (skip(iso)) continue;
     if (hit(iso)) n++;
-    else if (i === 0) continue;   // today not yet done doesn't break the streak
+    else if (i === 0) continue;   // today not yet done does not break the streak
     else break;
   }
   return n;
 }
 
 // ── Day builder: ordered spine blocks for a date ──
-// shiftMins: "running late" offset applied to blocks at/after the pre-lift meal.
+// shiftMins: the running late offset moves the afternoon (2:00p onward).
 export function buildDay(iso, shiftMins = 0) {
   const dow = dowOf(iso);
-  const day = WEEK[dow];
   const wknd = isWeekend(dow);
-  const session = PROGRAM[day.session];
+  const type = dayType(iso);
+  const session = sessionFor(iso);
+  const A = PLAN.anchors;
   const blocks = [];
 
-  blocks.push({
-    kind: 'anchor', tone: 'work', id: 'wake',
-    start: wknd ? ANCHORS.wakeWeekend : ANCHORS.wakeWeekday,
-    title: 'Wake', sub: wknd ? 'weekend' : '',
-  });
+  blocks.push({ kind: 'anchor', tone: 'work', id: 'wake',
+    start: wknd ? A.wakeWeekend : A.wakeWeekday, title: 'Wake', sub: wknd ? 'weekend' : '' });
 
-  // Meeting (Mon–Fri only) + work
-  if (!ANCHORS.meeting.weekdaysOnly || !isWeekend(dow)) {
-    blocks.push({
-      kind: 'meeting', tone: 'meeting', id: 'meeting',
-      start: ANCHORS.meeting.start, end: ANCHORS.meeting.end,
-      title: 'Daily meeting',
-      sub: `${fmtTime(ANCHORS.meeting.start)}–${fmtTime(ANCHORS.meeting.end)}`,
-    });
+  if (!A.meeting.weekdaysOnly || !wknd) {
+    blocks.push({ kind: 'meeting', tone: 'meeting', id: 'meeting',
+      start: A.meeting.start, end: A.meeting.end, title: 'Daily meeting',
+      sub: `${fmtTime(A.meeting.start)} to ${fmtTime(A.meeting.end)}` });
   }
-  blocks.push({ kind: 'anchor', tone: 'work', id: 'work-am', start: ANCHORS.workStart, title: 'Work · morning block', sub: '' });
+  blocks.push({ kind: 'anchor', tone: 'work', id: 'work-am', start: A.workStart,
+    title: 'Work, morning block', sub: 'wraps 9 to 10a' });
 
-  // Dog walk, then rehab round 1
-  blocks.push({ kind: 'walk', tone: 'walk', id: 'dogwalk', start: ANCHORS.dogWalk.start, end: ANCHORS.dogWalk.end, title: '1000 Acre dog walk', sub: '1.5–2 hr · home ~11a–12p' });
-  blocks.push({ kind: 'rehab', tone: 'rest', id: 'rehab1', start: ANCHORS.rehab1, title: 'Stretch · Piriformis Protocol', sub: 'round 1 of 2 · after the walk · left first' });
+  blocks.push({ kind: 'walk', tone: 'walk', id: 'dogwalk', start: A.dogWalk.start, end: A.dogWalk.end,
+    title: 'Dog walk', sub: 'about 2 hours' });
+  blocks.push({ kind: 'rehab', tone: 'rest', id: 'rehab1', start: A.rehab1,
+    title: 'Rehab sequence', sub: 'round 1 of 2, after the walk, left first' });
 
-  // Meals (checkable) — from the active meal era
-  for (const meal of resolveEra(iso).meals[day.type]) {
-    let t = mealTime(meal, dow);
-    if (isShiftable(t)) t += shiftMins;
-    blocks.push({
-      kind: 'meal', tone: 'meal', id: meal.id,
-      start: t,
-      title: meal.name,
-      sub: meal.dinner ? day.dinner : meal.sub,
-      p: meal.p, kcal: meal.kcal,
-      prelift: !!meal.prelift, dinner: !!meal.dinner,
-    });
+  for (const meal of mealsFor(iso)) {
+    let t = meal.time;
+    if (t >= hm(14, 0)) t += shiftMins;
+    blocks.push({ kind: 'meal', tone: 'meal', id: meal.id, start: t,
+      title: meal.name, sub: meal.src, kcal: meal.kcal, p: meal.p, c: meal.c, f: meal.f });
   }
 
-  // Lift (training days) — compact card that deep-links into WOD
-  if (day.type === 'training' && session.exercises.length) {
-    blocks.push({
-      kind: 'lift', tone: session.kind, id: 'lift',
-      start: ANCHORS.liftDefault.start + shiftMins,
-      end: ANCHORS.liftDefault.end + shiftMins,
-      title: session.title, sub: session.sub,
-      exerciseCount: session.exercises.length,
-    });
+  if (type === 'training') {
+    const phase = session.kind === 'legs' ? reintroPhase(iso) : null;
+    blocks.push({ kind: 'lift', tone: session.kind, id: 'lift',
+      start: A.train.start + shiftMins, end: A.train.end + shiftMins,
+      title: `${session.title}${session.where ? ` at ${session.where}` : ''}`,
+      sub: session.focus, exerciseCount: session.exercises.length,
+      phaseLabel: phase ? `Reintroduction phase ${phase.n}` : null });
+    blocks.push({ kind: 'row', tone: 'row', id: 'row',
+      start: A.row + shiftMins, end: A.row + shiftMins + 40,
+      title: 'Row, optional', sub: '30 to 40 minutes, cap 3 per week' });
   }
 
-  // Post-lift conditioning: engine (Wed/Sat) or Z2 row (Mon/Tue/Thu/Fri)
-  const row = ROWS[dow];
-  if (row === 'engine') {
-    blocks.push({
-      kind: 'engine', tone: 'legs', id: 'engine',
-      start: ANCHORS.engineStart + shiftMins,
-      title: 'Engine', sub: 'rotating — open WOD for today’s workout',
-    });
-  } else if (row) {
-    blocks.push({
-      kind: 'row', tone: 'row', id: 'row',
-      start: ANCHORS.rowStart + shiftMins, end: ANCHORS.rowStart + shiftMins + row.max,
-      title: `Row · ${row.min}–${row.max}′ Zone 2`, sub: ROW_PROTOCOL,
-    });
-  }
+  blocks.push({ kind: 'rehab', tone: 'rest', id: 'rehab2',
+    start: (type === 'training' ? A.rehab2 + shiftMins : hm(17, 0)),
+    title: 'Rehab sequence', sub: type === 'training' ? 'round 2 of 2, after training' : 'round 2 of 2, take it long' });
 
-  // Rehab round 2 (post-training; on Sun it's the extended sequence)
-  blocks.push({
-    kind: 'rehab', tone: 'rest', id: 'rehab2',
-    start: (day.type === 'training' ? hm(17, 15) + shiftMins : hm(17, 0)),
-    title: 'Stretch · Piriformis Protocol',
-    sub: day.type === 'training' ? 'round 2 of 2 · after training' : 'round 2 of 2 · extended — rest day',
-  });
+  blocks.push({ kind: 'posture', tone: 'rest', id: 'posture', start: hm(19, 30),
+    title: 'Posture block, 10 minutes', sub: PLAN.daily.posture.cue });
 
-  // Sunday prep block
-  if (day.prep != null) {
-    blocks.push({
-      kind: 'prep', tone: 'prep', id: 'prep',
-      start: day.prep, title: 'Sunday prep', sub: '~1 hr',
-      steps: PREP_STEPS,
-    });
+  if (dow === 0) {
+    blocks.push({ kind: 'order', tone: 'prep', id: 'order', start: hm(15, 30),
+      title: 'Weekly My Fit Foods order', sub: `${PLAN.weeklyOrder.length} items, open WOD` });
   }
 
   blocks.sort((a, b) => a.start - b.start);
   return blocks;
-}
-
-// Blocks at/after the pre-lift meal (2:30p) move with the "running late" shift.
-function isShiftable(originalMins) {
-  return originalMins >= hm(14, 30);
 }
 
 export { hm, fmtTime, isWeekend };

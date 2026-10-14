@@ -3,7 +3,7 @@
 // open gets the newest deploy; offline serves the precached copy. Fonts are
 // same-origin and precached. skipWaiting+claim; app reloads once on update.
 const NET_TIMEOUT = 2500; // ms before falling back to cache on a slow network
-const CACHE = 'theday-v3';
+const CACHE = 'theday-v4';
 const SHELL = [
   './',
   './index.html',
