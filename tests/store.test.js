@@ -43,6 +43,14 @@ test('weight log persists and clears', () => {
   assert.equal(Store.weightLog()['2026-07-27'], undefined);
 });
 
+test('body fat log stores, overwrites, and clears', () => {
+  Store.setBodyFat('2026-10-04', 15);
+  Store.setBodyFat('2026-11-07', 16.4);
+  assert.deepEqual(Store.bodyFatLog(), { '2026-10-04': 15, '2026-11-07': 16.4 });
+  Store.setBodyFat('2026-11-07', '');
+  assert.equal(Store.bodyFatLog()['2026-11-07'], undefined);
+});
+
 test('export/import round-trips all state', () => {
   Store.toggleCheck('2026-07-27', 't-bison');
   Store.setWeight('2026-07-27', 197);

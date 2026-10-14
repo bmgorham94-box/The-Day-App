@@ -8,6 +8,7 @@ const PRUNE_DAYS_SCORE = 180; // engine scores
 const empty = () => ({
   checks: {},     // { "YYYY-MM-DD": { mealId: true, "prep:0": true, "rehab1:2": true, ... } }
   weight: {},     // { "YYYY-MM-DD": number }
+  bodyfat: {},    // { "YYYY-MM-DD": percent } from InBody scans
   shift: {},      // { "YYYY-MM-DD": minutesOffset }
   loads: {},      // legacy per-exercise memory (kept for import compat)
   settings: {},   // { hevyKey: "..." }
@@ -79,6 +80,15 @@ export const Store = {
     write(s);
   },
   weightLog() { return read().weight; },
+
+  // ── Body fat log (InBody) ──
+  setBodyFat(iso, value) {
+    const s = read();
+    if (value == null || value === '' || isNaN(value)) delete s.bodyfat[iso];
+    else s.bodyfat[iso] = Number(value);
+    write(s);
+  },
+  bodyFatLog() { return read().bodyfat; },
 
   // ── Running-late shift ──
   getShift(iso) { return read().shift[iso] || 0; },

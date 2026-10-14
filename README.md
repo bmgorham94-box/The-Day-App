@@ -11,32 +11,13 @@ JavaScript, installable to the iOS home screen and fully offline-capable.
 
 ## What it does
 
-- **Focus card** — current block big, next block + live countdown small. Tap it to
-  scroll the day-spine to now.
-- **Day spine** — a vertical timeline with a clay "now" dot, tone-colored cards for
-  lifts / rows / prep, checkable meal cards with `P · kcal` chips, and expandable
-  session lists (exercises live inside the block that needs them).
-- **One-tap meal check-off** — protein + calorie progress bars, "still to land" hints,
-  undo, and automatic reset at midnight.
-- **Running late** — one control on the afternoon (+30 / +60 / reset) shifts the
-  pre-lift meal, the lift, and everything after it — for today only.
-- **Adherence** — the last 14 days as neutral dots (protein landed / calories within
-  ±5% / lifted / rowed) with ratio labels. No streaks, no red, no shame.
-- **Weight log** — one numeric field, a 7-day rolling-average sparkline.
-- **Phase + era engine** — the phase badge and macro targets switch by date automatically, and the meal system swaps on its own date: **Era A "Batch week"** (home oat bake + Boujee Mac) flips to **Era B "MFF"** on `2026-08-03`. During Era A the header shows a *"Batch week · MFF starts Aug 3"* chip.
-- **`.ics` export** — a 7-day calendar with 10-minute alarms so iOS Calendar becomes
-  the notification layer. Regenerate any time from Settings.
-- **Data export / import** — all state as a single JSON file.
-- **Week strip + tabs** — today is ringed; other days are read-only planning views.
-- **WOD tab** — the training surface: day hero, rehab/primer checklists (Piriformis
-  Protocol v2), set-by-set strength logging with last-session targets, leg-day
-  **engine workouts** from a 16-strong rotating library (8-week no-repeat loop,
-  shuffle control, score logging) with a drift-free interval timer (Wake Lock +
-  timestamp math), post-lift row tracking, and a finish stretch sequence.
-- **Fuel / Progress tabs** — targets + weight trend; 14-day adherence, calendar
-  export, JSON data export/import, Hevy key.
-- **Self-hosted fonts** — Inter + Bricolage Grotesque woff2 live in `fonts/` and are
-  precached, so typography is correct offline on first paint. No Google Fonts request.
+- **Focus card**: current block big, next block + live countdown small. Tap to scroll the spine to now.
+- **Day spine**: the timeline with the now dot. Meals carry cal/P/C/F chips and one tap check offs; training, rehab, posture, and the Sunday order deep link into WOD.
+- **Morning weigh in** at the top of Today with the 7 day rolling average. A single day is never shown as a trend.
+- **WOD tab**: session name, location (Home or LA Fitness), focus line, exercise check offs with sets and reps, the leg day pre session checklist, the reintroduction phase label (through Nov 10, 2026), an optional row with a weekly cap of 3, and both rehab rounds. Hevy stays the lifting log.
+- **Meals**: My Fit Foods plan with a weekday lunch and dinner rotation, real macros in the totals, a rest day variant on Sunday, and the weekly order as a Sunday check off.
+- **Tracking**: check in badge every 14 days (anchored Oct 18, 2026), first Saturday photos + InBody card with a body fat field, and the body fat gate: 17 percent or higher shows "Build block ends. Start the mini cut."
+- **Running late** (+30/+60) shifts the afternoon for today only. Adherence view, `.ics` export with alarms, JSON export/import, auto updating offline first PWA with self hosted fonts.
 
 ### A note on notifications
 
@@ -47,49 +28,11 @@ alarms. That is the notification layer, honestly.
 
 ---
 
-## Editing the plan — `config.js` is the settings
+## Editing the plan: `config.js` is the settings
 
-There is no settings UI for the schedule. **Everything lives in `config.js`:** wake
-times, meals (with exact protein + calories), training sessions, the dinner rotation,
-macro targets, phases, the row protocol, and Sunday prep steps. Change the plan by
-editing that one file — app code never hard-codes content.
+Everything lives in one plain data object, `PLAN`, at the top of `config.js`: anchors, meals and the rotation, the weekly order, training days and exercises, the leg checklist, the reintroduction phase dates, cardio cap, daily blocks, and tracking (check in anchor, seed, body fat gate). The rehab sequence is `REHAB`. Edit values there; app code never hard codes content. UI copy uses no em dashes (unit tested).
 
-Common edits:
-
-| To change… | Edit in `config.js` |
-|---|---|
-| A meal's protein / calories / time | `MEAL_ERAS[n].meals.training` or `.rest` |
-| Phase-1 macro targets | `MEAL_ERAS[n].targets` (per era) |
-| When the meal system swaps | `MFF_START` (one constant) |
-| Add a future meal system | append a new entry to `MEAL_ERAS` |
-| Which session runs on a given day | `WEEK[dow].session` |
-| Dinner for a day | `WEEK[dow].dinner` |
-| Phase dates / Phase 2–3 anchors | `PHASES` |
-| Check-in cadence | `CHECKIN_ANCHOR` / `CHECKIN_INTERVAL_DAYS` |
-| Training sessions / cues / tags | `PROGRAM` |
-| Engine workouts (the 16) | `ENGINES` |
-| Rehab sequence + rules | `REHAB` / `PRIMER` |
-| Row prescriptions | `ROWS` / `ROW_PROTOCOL` / `CRAMP_NOTE` |
-
-**Meals are modeled as dated eras.** The user changes his meal system periodically, so
-meals *and* their macro targets live in `MEAL_ERAS` — each era has a `[start, end)` date
-window. Resolving the plan for any date picks the right era automatically; swapping to a
-new system is a config edit (a new era entry + a date), never a code change. Phase 1
-(Recomp) draws its targets from the active era; Phases 2–3 carry their own kcal anchors.
-
-> **Load-bearing rule:** each era's meals must sum to its exact targets — Era A "Batch
-> week" to `210P / 2767 kcal` (training) and `184P / 2439 kcal` (rest); Era B "MFF" to
-> `208P / 2601 kcal` and `182P / 2273 kcal`. Unit tests enforce every era. Phase 2/3 macro
-> splits are intentionally `null` (TBD); the app shows a banner until you fill them in.
-> Don't invent numbers.
-
-After editing, just deploy — **updates reach installed copies automatically.** The
-service worker is stale-while-revalidate (network-first for the HTML), and the app
-reloads itself once when a new version takes over, so the next time you open The Day it
-picks up your changes. No cache-version bump, no manual "clear site data." It still works
-fully offline from the last cached version.
-
----
+After editing, just deploy. Updates reach installed copies automatically (network first service worker + a one time self reload); offline still works from the last cached version.
 
 ## Re-exporting the calendar (`.ics`)
 
@@ -131,13 +74,11 @@ node scripts/gen-icons.mjs
 
 ### What the tests guarantee
 
-- Era A meals sum to exactly `{ p: 210, kcal: 2767 }` (training) / `{ p: 184, kcal: 2439 }` (rest); Era B to `{ p: 208, kcal: 2601 }` / `{ p: 182, kcal: 2273 }`.
-- Era resolver returns **Batch week** on `2026-08-02` and **MFF** on `2026-08-03`.
-- Phase resolver returns **Recomp** on `2026-09-30`, **Build** on `2026-10-01`, **Reveal** on `2027-03-15`.
-- Phase 2/3 splits stay `null` (never invented).
-- Check-in predicate is true on `2026-07-26` and every 14 days.
-- Day rollover starts a clean slate (checks are keyed by ISO date; old entries prune after 30 days).
-- `.ics` export is well-formed, has 10-minute alarms, and is deterministic across re-exports.
+- Monday totals exactly 2,925 cal / 268P from the real rotation macros; every training day lands 2,800 to 2,950; Sunday rest is about 2,450 with the Chicken Salad Wrap at 2:30p and no pre/post lift items.
+- Wake 5:15a weekdays / 6:30a weekends; meeting 7 to 8a weekdays; training window 2 to 3p; sessions land on the right days and locations.
+- Reintroduction phases resolve by date (2 sets through Oct 27, listed sets Oct 28 to Nov 10, nothing after) and the RDL ban holds until Nov 14, 2026.
+- Check ins every 14 days from Oct 18, 2026; first Saturday detection; the 17 percent body fat gate; the Oct 4 seed (176.0 lb, 15 percent).
+- No em or en dashes in any plan or rehab copy. Store round trips, pruning, and the `.ics` export stay covered.
 
 ---
 
@@ -147,7 +88,7 @@ node scripts/gen-icons.mjs
 index.html            App shell
 styles.css            Design system — locked "printed program" palette as tokens
 app.js                UI orchestration (Today · WOD · Fuel · Progress)
-wod.js                WOD tab: set logging, engine rotation, interval timer
+wod.js                WOD tab: session check offs, leg checklist, weekly order
 config.js             ← single source of truth (the plan)
 engine.js             Pure date / phase / day-building logic (imported by app + tests)
 store.js              localStorage persistence
